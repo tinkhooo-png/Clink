@@ -1,7 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 
 export const platform = Capacitor.getPlatform(); // web | android | ios
-export const isElectron = typeof navigator !== 'undefined' && /Electron/i.test(navigator.userAgent);
 
 /** CSV 파일 저장(PC·웹) 또는 공유 시트(모바일) */
 export async function saveTextFile(filename, text) {

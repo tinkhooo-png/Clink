@@ -3,9 +3,9 @@ import { uid, todayStr } from './format.js';
 export const PALETTE = ['#3182f6', '#03b26c', '#fe9800', '#f04452', '#a234c7', '#18a5a5', '#ffc342', '#8b95a1'];
 
 const DEFAULT_CATEGORIES = [
-  { name: '주유비', type: 'expense', color: '#fe9800' },
-  { name: '식비', type: 'expense', color: '#03b26c' },
-  { name: '기타', type: 'expense', color: '#8b95a1' },
+  { name: '주유비', type: 'expense', color: '#fe9800', icon: 'fuel' },
+  { name: '식비', type: 'expense', color: '#03b26c', icon: 'meal' },
+  { name: '기타', type: 'expense', color: '#8b95a1', icon: 'etc' },
 ];
 
 const LS = { cats: 'sl.categories', entries: 'sl.entries' };
@@ -174,10 +174,10 @@ export class Store {
     this.saveLocal(); this.emit();
   }
 
-  addCategory({ name, type, color }) {
+  addCategory({ name, type, color, icon }) {
     const now = Date.now();
     const order = Math.max(-1, ...this.state.categories.map((c) => c.order)) + 1;
-    this._putCategory({ id: uid(), name, type, color, order, hidden: false, createdAt: now, updatedAt: now });
+    this._putCategory({ id: uid(), name, type, color, icon, order, hidden: false, createdAt: now, updatedAt: now });
   }
   updateCategory(id, patch) {
     const old = this.state.categories.find((c) => c.id === id);

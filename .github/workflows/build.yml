@@ -1,4 +1,4 @@
-name: 앱 빌드 (Android APK + Windows 설치 파일)
+name: 앱 빌드 (Android APK + 웹)
 
 on:
   push:
@@ -24,7 +24,6 @@ jobs:
       - uses: actions/setup-java@v4
         with: { distribution: temurin, java-version: 21, cache: gradle }
       - run: npm ci
-        env: { ELECTRON_SKIP_BINARY_DOWNLOAD: 1 }
       - run: npm run build
       - run: npx cap sync android
       - name: APK 빌드
@@ -34,25 +33,38 @@ jobs:
       - uses: actions/upload-artifact@v4
         with: { name: Ttaenggrang-android, path: Ttaenggrang.apk }
 
-  windows:
-    runs-on: windows-latest
+  # PC·웹: 브라우저로 여는 주소에 올린다 (Firebase Hosting, https://ledger-53aeb.web.app)
+  web:
+    runs-on: ubuntu-latest
+    env:
+      FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - run: npm ci
-      - run: npm run dist:win
-        env: { GH_TOKEN: '${{ secrets.GITHUB_TOKEN }}' }
+      - run: npm run build
       - uses: actions/upload-artifact@v4
-        with: { name: Ttaenggrang-windows, path: release/*.exe }
+        with: { name: Ttaenggrang-web, path: dist }
+      - name: 웹에 올리기
+        if: env.FIREBASE_SA != '' && github.ref == 'refs/heads/main'
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          channelId: live
+          projectId: ledger-53aeb
+      - name: 웹 주소 설정 안내
+        if: env.FIREBASE_SA == ''
+        run: echo "::notice::FIREBASE_SERVICE_ACCOUNT 비밀값을 등록하면 https://ledger-53aeb.web.app 에 자동으로 올라가요. (README 4단계)"
 
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [android, windows]
+    needs: [android]
     runs-on: ubuntu-latest
     permissions: { contents: write }
     steps:
       - uses: actions/download-artifact@v4
-        with: { path: out, merge-multiple: true }
+        with: { name: Ttaenggrang-android, path: out }
       - uses: softprops/action-gh-release@v2
         with: { files: 'out/*' }

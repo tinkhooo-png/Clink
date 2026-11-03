@@ -81,7 +81,7 @@ export function initGestures(o) {
   }
 
   function startDrag() {
-    const cur = document.querySelector('#app > .screen');
+    const cur = document.querySelector('#app .screen');
     if (!cur) return null;
     const tabs = o.tabs;
     const i = tabs.indexOf(o.tab());

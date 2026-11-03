@@ -1,14 +1,12 @@
 {
   "name": "simple-ledger",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "단순한 가계부: 기록·통계·설정",
-  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "build:preview": "vite build --mode preview",
-    "electron": "vite build && electron .",
-    "dist:win": "vite build && electron-builder --win nsis --publish never",
+    "preview": "vite preview",
     "android:sync": "vite build && cap sync android",
     "android:open": "cap open android"
   },
@@ -26,50 +24,10 @@
   "devDependencies": {
     "@capacitor/android": "^8.6.0",
     "@capacitor/cli": "^8.6.0",
-    "electron": "^45.2.1",
-    "electron-builder": "^26.18.0",
     "vite": "^8.3.5",
     "vite-plugin-singlefile": "^2.3.4"
   },
   "productName": "땡그랑",
   "private": true,
-  "type": "module",
-  "build": {
-    "appId": "com.leo.simpleledger",
-    "productName": "땡그랑",
-    "directories": {
-      "output": "release",
-      "buildResources": "build"
-    },
-    "files": [
-      "dist/**/*",
-      "electron/**/*",
-      "package.json",
-      "!**/node_modules/**/*"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ],
-      "icon": "build/icon.png",
-      "artifactName": "Ttaenggrang-Setup-${version}.exe"
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "shortcutName": "땡그랑"
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "build/icon.png",
-      "category": "public.app-category.finance"
-    }
-  }
+  "type": "module"
 }
