@@ -18,6 +18,7 @@ export const icons = {
   clear: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor"/><path d="m15 9-6 6m0-6 6 6" stroke="var(--canvas)" stroke-width="2" stroke-linecap="round"/></svg>`,
   sortDesc: line('<path d="M12 5v14M6 13l6 6 6-6"/>'),
   sortAsc: line('<path d="M12 19V5M6 11l6-6 6 6"/>'),
+  updown: line('<path d="m8 9 4-4 4 4M8 15l4 4 4-4"/>'),
   up: line('<path d="m6 15 6-6 6 6"/>'),
   plus: line('<path d="M12 5v14M5 12h14"/>'),
   edit: line('<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),

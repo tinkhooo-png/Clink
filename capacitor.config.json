@@ -1,6 +1,6 @@
 {
   "appId": "com.leo.simpleledger",
-  "appName": "심플 가계부",
+  "appName": "땡그랑",
   "webDir": "dist",
   "android": {
     "backgroundColor": "#ffffff"

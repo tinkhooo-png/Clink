@@ -111,6 +111,13 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
   padding: calc(env(safe-area-inset-top, 0px) + var(--space-lg)) var(--space-lg)
            calc(var(--nav-height) + env(safe-area-inset-bottom, 0px) + var(--space-xxl));
 }
+.screen { touch-action: pan-y; }
+body { overflow-x: hidden; }
+/* 좌우로 밀 때 옆 탭 미리보기 */
+.page-ghost {
+  position: fixed; top: 0; height: 100vh; overflow: hidden; z-index: 5;
+  background: var(--canvas); pointer-events: none; will-change: transform;
+}
 .topbar {
   display: flex; align-items: center; gap: var(--space-md);
   min-height: 44px; margin-bottom: var(--space-lg);
@@ -199,6 +206,7 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
   position: relative;
 }
 .date-chip svg { width: 16px; height: 16px; color: var(--grey600); }
+.date-chip .date-text { display: inline-block; }
 .date-chip input[type="date"] { position: absolute; inset: 0; opacity: 0; width: 100%; cursor: pointer; }
 
 .amount-field { display: flex; align-items: center; gap: var(--space-md); margin-top: var(--space-md); }
@@ -265,6 +273,8 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 
 /* ---------------- 통계 화면 ---------------- */
 .period-nav { display: flex; align-items: center; gap: 2px; flex: 1; }
+.stats-top { position: relative; }
+.stats-top .period-nav { position: absolute; left: 50%; transform: translateX(-50%); flex: none; }
 .period-nav .title { font-size: var(--t4); line-height: var(--t4-lh); font-weight: 700; color: var(--foreground); padding: 0 4px; }
 .summary { margin-top: var(--space-lg); }
 .summary .compare { margin-top: var(--space-xs); font-size: var(--t7); color: var(--grey600); }
@@ -290,6 +300,20 @@ button { cursor: pointer; border: 0; background: none; padding: 0; }
 .controls { display: grid; gap: 10px; margin-bottom: var(--space-md); }
 .control-row { display: flex; align-items: center; gap: var(--space-md); }
 .control-row .label { width: 52px; flex: none; }
+.control-row .chips { min-width: 0; }
+/* 오름·내림은 날짜/금액보다 약하게: 배경 없는 글자 버튼 */
+.dir-toggle {
+  margin-left: auto; flex: none; display: inline-flex; align-items: center; gap: 4px;
+  height: 34px; padding: 0 6px; border-radius: 8px;
+  color: var(--grey600); font-size: var(--t7); font-weight: 500; white-space: nowrap;
+  transition: transform .12s ease, background-color .12s ease;
+}
+.dir-toggle svg { width: 16px; height: 16px; }
+.dir-toggle:hover { background: var(--surface); }
+.dir-toggle:active { transform: scale(0.96); }
+/* 카테고리별 보기일 때만 나오는 카테고리 고르기: 주황 약한 강조 */
+.cat-filter { margin-left: 60px; }
+.chip.soft[aria-pressed="true"] { background: var(--weak-background); color: var(--weak-foreground); }
 .chips { display: flex; gap: var(--space-sm); overflow-x: auto; scrollbar-width: none; padding: 2px 0; }
 .chips::-webkit-scrollbar { display: none; }
 

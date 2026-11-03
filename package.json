@@ -31,12 +31,12 @@
     "vite": "^8.3.5",
     "vite-plugin-singlefile": "^2.3.4"
   },
-  "productName": "심플 가계부",
+  "productName": "땡그랑",
   "private": true,
   "type": "module",
   "build": {
     "appId": "com.leo.simpleledger",
-    "productName": "심플 가계부",
+    "productName": "땡그랑",
     "directories": {
       "output": "release",
       "buildResources": "build"
@@ -57,14 +57,14 @@
         }
       ],
       "icon": "build/icon.png",
-      "artifactName": "SimpleLedger-Setup-${version}.exe"
+      "artifactName": "Ttaenggrang-Setup-${version}.exe"
     },
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "shortcutName": "심플 가계부"
+      "shortcutName": "땡그랑"
     },
     "mac": {
       "target": "dmg",

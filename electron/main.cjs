@@ -18,7 +18,7 @@ function createWindow() {
     height: 880,
     minWidth: 360,
     minHeight: 560,
-    title: '심플 가계부',
+    title: '땡그랑',
     backgroundColor: '#ffffff',
     autoHideMenuBar: true,
     icon: path.join(__dirname, '..', 'build', 'icon.png'),

@@ -7,6 +7,8 @@ import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.net.Uri;
+import android.os.Bundle;
+import android.util.TypedValue;
 import android.view.View;
 import android.widget.RemoteViews;
 
@@ -33,11 +35,33 @@ public final class WidgetRender {
     public static void updateAll(Context c) {
         AppWidgetManager m = AppWidgetManager.getInstance(c);
         for (int id : m.getAppWidgetIds(new ComponentName(c, QuickAddWidget.class))) {
-            m.updateAppWidget(id, quick(c));
+            m.updateAppWidget(id, quick(c, id));
         }
         for (int id : m.getAppWidgetIds(new ComponentName(c, SummaryWidget.class))) {
-            m.updateAppWidget(id, summary(c));
+            m.updateAppWidget(id, summary(c, id));
         }
+    }
+
+    /**
+     * 위젯 크기에 맞춘 배율. 기준 크기(base)일 때 1, 키우면 글자·여백도 같이 커진다.
+     * 세로 화면 기준: 너비 = MIN_WIDTH, 높이 = MAX_HEIGHT (dp).
+     */
+    static float scale(Context c, int id, float baseW, float baseH, float max) {
+        if (id == AppWidgetManager.INVALID_APPWIDGET_ID) return 1f;
+        Bundle o = AppWidgetManager.getInstance(c).getAppWidgetOptions(id);
+        int w = o == null ? 0 : o.getInt(AppWidgetManager.OPTION_APPWIDGET_MIN_WIDTH, 0);
+        int h = o == null ? 0 : o.getInt(AppWidgetManager.OPTION_APPWIDGET_MAX_HEIGHT, 0);
+        if (w <= 0 || h <= 0) return 1f;
+        float s = Math.min(w / baseW, h / baseH);
+        return Math.max(0.85f, Math.min(max, s));
+    }
+
+    private static int dp(Context c, float v) {
+        return Math.round(v * c.getResources().getDisplayMetrics().density);
+    }
+
+    private static void sp(RemoteViews rv, int viewId, float size) {
+        rv.setTextViewTextSize(viewId, TypedValue.COMPLEX_UNIT_SP, size);
     }
 
     private static PendingIntent openApp(Context c) {
@@ -55,8 +79,17 @@ public final class WidgetRender {
     }
 
     /* ---------- 빠른 기록 위젯 ---------- */
-    static RemoteViews quick(Context c) {
+    static RemoteViews quick(Context c, int widgetId) {
         RemoteViews rv = new RemoteViews(c.getPackageName(), R.layout.widget_quick);
+        // 크기에 맞춰 키패드·카테고리 줄은 레이아웃 비율로 늘어나고, 글자와 여백은 배율로 키운다
+        float s = scale(c, widgetId, 250f, 280f, 1.8f);
+        int pad = dp(c, 12 * s);
+        rv.setViewPadding(R.id.root, pad, pad, pad, pad);
+        sp(rv, R.id.q_label, 12 * s);
+        sp(rv, R.id.amount, 26 * s);
+        sp(rv, R.id.status, 12 * s);
+        for (int kid : KEY_IDS) sp(rv, kid, 18 * s);
+        for (int nid : CAT_NAME_IDS) sp(rv, nid, 14 * s);
         long amt = WidgetStore.amount(c);
         rv.setTextViewText(R.id.amount, WidgetStore.won(amt));
         rv.setTextColor(R.id.amount, c.getColor(amt == 0 ? R.color.widget_placeholder : R.color.widget_fg));
@@ -95,8 +128,15 @@ public final class WidgetRender {
     }
 
     /* ---------- 이번 달 요약 위젯 ---------- */
-    static RemoteViews summary(Context c) {
+    static RemoteViews summary(Context c, int widgetId) {
         RemoteViews rv = new RemoteViews(c.getPackageName(), R.layout.widget_summary);
+        float k = scale(c, widgetId, 120f, 120f, 2.2f);
+        int pad = dp(c, 16 * Math.min(k, 1.6f));
+        rv.setViewPadding(R.id.s_root, pad, pad, pad, pad);
+        sp(rv, R.id.s_label, 13 * k);
+        sp(rv, R.id.s_month, 24 * k);
+        sp(rv, R.id.s_today, 13 * k);
+        sp(rv, R.id.s_add, 14 * k);
         JSONObject s = WidgetStore.summary(c);
         String today = WidgetStore.today();
         String month = today.substring(0, 7);

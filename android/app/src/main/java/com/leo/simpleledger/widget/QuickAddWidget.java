@@ -4,6 +4,7 @@ import android.appwidget.AppWidgetManager;
 import android.appwidget.AppWidgetProvider;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Bundle;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -15,7 +16,13 @@ public class QuickAddWidget extends AppWidgetProvider {
 
     @Override
     public void onUpdate(Context c, AppWidgetManager m, int[] ids) {
-        for (int id : ids) m.updateAppWidget(id, WidgetRender.quick(c));
+        for (int id : ids) m.updateAppWidget(id, WidgetRender.quick(c, id));
+    }
+
+    /** 홈 화면에서 위젯 크기를 바꾸면 다시 그린다 */
+    @Override
+    public void onAppWidgetOptionsChanged(Context c, AppWidgetManager m, int id, Bundle options) {
+        m.updateAppWidget(id, WidgetRender.quick(c, id));
     }
 
     @Override

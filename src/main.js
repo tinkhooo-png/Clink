@@ -6,8 +6,9 @@ import './styles.css';
 import { Store, PALETTE } from './store.js';
 import { icons, orb } from './icons.js';
 import {
-  comma, won, pad, todayStr, relLabel, dateLabel, weekLabel, digitsToInt, esc, MAX_AMOUNT, parseYmd,
+  comma, won, pad, todayStr, relLabel, dateLabel, weekLabel, digitsToInt, esc, MAX_AMOUNT, parseYmd, addDays,
 } from './format.js';
+import { initGestures } from './gestures.js';
 import { inPeriod, previousPeriod, summarize, byCategory, trend, buildList, monthIndex, isIncome } from './stats.js';
 import { syncWidget, importWidgetEntries, widgetSupported, WIDGET_SLOTS } from './widget-bridge.js';
 import { saveTextFile, onBackButton, onResume } from './platform.js';
@@ -73,8 +74,8 @@ function renderRecord() {
     <header class="topbar">
       <h1 id="t-record">기록</h1>
       ${offline ? '<span class="sync busy"><i></i>오프라인 · 연결되면 올라가요</span>' : ''}
-      <button class="date-chip" data-act="pick-date" aria-label="기록 날짜 바꾸기, 지금 ${dateLabel(rec.date)}">
-        ${isToday ? '오늘' : relLabel(rec.date)}${icons.down}
+      <button class="date-chip" data-act="pick-date" aria-label="기록 날짜 ${dateLabel(rec.date)}. 누르면 날짜를 고르고, 화면을 위아래로 밀면 하루씩 바뀌어요">
+        <span class="date-text">${isToday ? '오늘' : relLabel(rec.date)}</span>${icons.updown}
       </button>
       <input type="date" id="rec-date" class="sr-only" tabindex="-1" value="${rec.date}" max="${todayStr()}" data-input="rec-date">
     </header>
@@ -119,6 +120,29 @@ function renderRecord() {
         : `<div class="card today-card">${orb(40)}<div class="grow"><strong style="color:var(--foreground)">아직 기록이 없어요</strong><div class="hint">금액을 입력하고 카테고리를 눌러 보세요.</div></div></div>`}
     </section>
   </main>`;
+}
+
+const spring = 'cubic-bezier(.34,1.56,.64,1)';
+const reducedMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/** 기록 날짜를 하루씩 옮긴다. d = -1(전날) | 1(다음 날) */
+function shiftRecordDate(d) {
+  const next = addDays(ui.rec.date, d);
+  const screen = () => document.querySelector('#app > .screen');
+  if (next > todayStr()) {
+    // 오늘보다 뒤로는 못 간다: 살짝 튕기고 끝
+    if (!reducedMotion()) screen()?.animate([{ transform: 'translateY(-14px)' }, { transform: 'none' }], { duration: 360, easing: spring });
+    showToast('오늘보다 뒤 날짜는 고를 수 없어요'); render();
+    return;
+  }
+  ui.rec.date = next;
+  render();
+  navigator.vibrate?.(8);
+  if (reducedMotion()) return;
+  const from = d > 0 ? 36 : -36; // 다음 날은 아래에서, 전날은 위에서 들어온다
+  screen()?.animate([{ transform: `translateY(${from}px)`, opacity: 0.35 }, { transform: 'none', opacity: 1 }], { duration: 420, easing: spring });
+  document.querySelector('.date-text')?.animate(
+    [{ transform: `translateY(${from / 2.4}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, easing: spring });
 }
 
 function setAmount(n, { keepFocus = true } = {}) {
@@ -286,7 +310,7 @@ function renderStats() {
   const empty = !entries.length;
 
   return `<main class="screen" aria-labelledby="t-stats">
-    <header class="topbar">
+    <header class="topbar stats-top">
       <button class="icon-btn" data-act="drawer" aria-label="연도·월 이동 메뉴 열기">${icons.menu}</button>
       <div class="period-nav">
         ${p.period !== 'all' ? `<button class="icon-btn" data-act="shift" data-d="-1" aria-label="이전 기간">${icons.left}</button>` : ''}
@@ -322,16 +346,16 @@ function renderStats() {
       <div class="controls">
         <div class="control-row"><span class="label">정렬</span><div class="chips">
           ${chip('sort', 'date', p.sort, '날짜')}${chip('sort', 'amount', p.sort, '금액')}
-          <span style="width:1px;background:var(--border);margin:6px 2px;flex:none"></span>
-          ${chip('dir', 'desc', p.dir, dirLabels[0], icons.sortDesc)}${chip('dir', 'asc', p.dir, dirLabels[1], icons.sortAsc)}
-        </div></div>
+        </div>
+          <button class="dir-toggle" data-act="dir-toggle" aria-label="순서 바꾸기, 지금 ${p.dir === 'desc' ? dirLabels[0] : dirLabels[1]}">${p.dir === 'desc' ? icons.sortDesc : icons.sortAsc}${p.dir === 'desc' ? dirLabels[0] : dirLabels[1]}</button>
+        </div>
         <div class="control-row"><span class="label">보기</span><div class="chips">
           ${chip('group', 'item', p.group, '건별')}${chip('group', 'day', p.group, '날짜별')}${chip('group', 'week', p.group, '주별')}${chip('group', 'category', p.group, '카테고리별')}
         </div></div>
-        <div class="control-row"><span class="label">카테고리</span><div class="chips">
-          <button class="chip" data-act="fcat" data-v="" aria-pressed="${p.filterCats.size === 0}">전체</button>
-          ${filterCats.map((c) => `<button class="chip" data-act="fcat" data-v="${c.id}" aria-pressed="${p.filterCats.has(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`).join('')}
-        </div></div>
+        ${p.group === 'category' ? `<div class="chips cat-filter" role="group" aria-label="카테고리 고르기">
+          <button class="chip soft" data-act="fcat" data-v="" aria-pressed="${p.filterCats.size === 0}">전체</button>
+          ${filterCats.map((c) => `<button class="chip soft" data-act="fcat" data-v="${c.id}" aria-pressed="${p.filterCats.has(c.id)}"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</button>`).join('')}
+        </div>` : ''}
       </div>
       ${listHtml}${more}
     </section>
@@ -406,7 +430,7 @@ function renderMy() {
       <div class="card">
         <p style="margin:0;color:var(--foreground);font-weight:600">빠른 기록 · 이번 달 요약</p>
         <p class="hint" style="margin:6px 0 0">${widgetSupported
-          ? `홈 화면을 길게 누르고 위젯에서 ‘심플 가계부’를 고르세요. 숨기지 않은 카테고리 중 위에서부터 ${WIDGET_SLOTS}개가 빠른 기록 위젯에 나와요.`
+          ? `홈 화면을 길게 누르고 위젯에서 ‘땡그랑’를 고르세요. 숨기지 않은 카테고리 중 위에서부터 ${WIDGET_SLOTS}개가 빠른 기록 위젯에 나와요.`
           : '안드로이드 앱에서 쓸 수 있어요. 여기서 기록해도 위젯 금액에 바로 반영돼요.'}</p>
       </div>
     </section>
@@ -415,7 +439,7 @@ function renderMy() {
       <div class="section-head"><h2 id="t-data">데이터</h2></div>
       <button class="menu-row" data-act="export">${icons.download.replace('<svg', '<svg style="color:var(--grey600)"')}<span>기록 내보내기 (CSV)</span>${icons.right}</button>
     </section>
-    <p class="hint" style="margin-top:24px">심플 가계부 ${VERSION}</p>
+    <p class="hint" style="margin-top:24px">땡그랑 ${VERSION}</p>
   </main>`;
 }
 
@@ -504,6 +528,10 @@ const TABS = [
   ['my', '마이', icons.tabMy],
 ];
 
+function renderTab(tab) {
+  return tab === 'record' ? renderRecord() : tab === 'stats' ? renderStats() : renderMy();
+}
+
 function render() {
   const app = document.getElementById('app');
   // 입력 중인 칸의 포커스·커서 유지
@@ -512,7 +540,7 @@ function render() {
   const sel = active && 'selectionStart' in active ? [active.selectionStart, active.selectionEnd] : null;
   const scrollY = window.scrollY;
 
-  const screen = ui.tab === 'record' ? renderRecord() : ui.tab === 'stats' ? renderStats() : renderMy();
+  const screen = renderTab(ui.tab);
   app.innerHTML = `${screen}
     <nav class="tabbar" aria-label="주 메뉴"><div class="tabbar-inner">
       ${TABS.map(([id, label, icon]) => `<button class="tab" data-act="go-tab" data-tab="${id}" aria-label="${label}" ${ui.tab === id ? 'aria-current="page"' : ''}>${icon}</button>`).join('')}
@@ -599,8 +627,12 @@ const actions = {
     ui.drawer = false; render(); window.scrollTo(0, 0);
   },
   sort: (el) => { ui.st.limit = 60; ui.st.sort = el.dataset.v; render(); },
-  dir: (el) => { ui.st.limit = 60; ui.st.dir = el.dataset.v; render(); },
-  group: (el) => { ui.st.limit = 60; ui.st.group = el.dataset.v; render(); },
+  'dir-toggle': () => { ui.st.limit = 60; ui.st.dir = ui.st.dir === 'desc' ? 'asc' : 'desc'; render(); },
+  group: (el) => {
+    ui.st.limit = 60; ui.st.group = el.dataset.v;
+    if (ui.st.group !== 'category') ui.st.filterCats.clear(); // 카테고리 고르기는 카테고리별 보기에서만
+    render();
+  },
   more: () => { ui.st.limit += 100; render(); },
   fcat: (el) => {
     ui.st.limit = 60;
@@ -754,6 +786,15 @@ document.addEventListener('keydown', (ev) => {
 /* =================================================================
    시작
 ================================================================= */
+initGestures({
+  enabled: () => !ui.sheet && !ui.drawer,
+  tab: () => ui.tab,
+  tabs: TABS.map(([id]) => id),
+  renderTab,
+  onTab: (t) => goTab(t),
+  onDateShift: (d) => shiftRecordDate(d),
+});
+
 let authSeen = store.state.authReady;
 store.subscribe(() => {
   render(); syncWidget(store);
