@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_bg"
+    android:orientation="vertical"
+    android:padding="12dp">
+
+    <LinearLayout android:id="@+id/header" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="vertical" android:paddingStart="4dp" android:paddingEnd="4dp" android:paddingBottom="6dp">
+        <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="빠른 기록" android:textColor="@color/widget_sub" android:textSize="12sp" android:textStyle="bold" />
+        <TextView android:id="@+id/amount" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:text="0원" android:textColor="@color/widget_placeholder" android:textSize="26sp" android:textStyle="bold"
+            android:maxLines="1" android:ellipsize="start" android:fontFeatureSettings="tnum" />
+        <TextView android:id="@+id/status" android:layout_width="match_parent" android:layout_height="wrap_content"
+            android:textColor="@color/widget_sub" android:textSize="12sp" android:maxLines="1" android:ellipsize="end" />
+    </LinearLayout>
+
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:id="@+id/k1" style="@style/WidgetKey" android:text="1" />
+        <TextView android:id="@+id/k2" style="@style/WidgetKey" android:text="2" />
+        <TextView android:id="@+id/k3" style="@style/WidgetKey" android:text="3" />
+        <TextView android:id="@+id/kback" style="@style/WidgetKey" android:text="⌫" android:contentDescription="지우기" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:id="@+id/k4" style="@style/WidgetKey" android:text="4" />
+        <TextView android:id="@+id/k5" style="@style/WidgetKey" android:text="5" />
+        <TextView android:id="@+id/k6" style="@style/WidgetKey" android:text="6" />
+        <TextView android:id="@+id/k00" style="@style/WidgetKey" android:text="00" />
+    </LinearLayout>
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+        <TextView android:id="@+id/k7" style="@style/WidgetKey" android:text="7" />
+        <TextView android:id="@+id/k8" style="@style/WidgetKey" android:text="8" />
+        <TextView android:id="@+id/k9" style="@style/WidgetKey" android:text="9" />
+        <TextView android:id="@+id/k0" style="@style/WidgetKey" android:text="0" />
+    </LinearLayout>
+
+    <LinearLayout android:id="@+id/cat_row1" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:layout_marginTop="4dp">
+        <LinearLayout android:id="@+id/cat0" style="@style/WidgetCat">
+            <ImageView android:id="@+id/cat0_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/widget_dot" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/cat0_name" style="@style/WidgetCatText" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/cat1" style="@style/WidgetCat">
+            <ImageView android:id="@+id/cat1_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/widget_dot" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/cat1_name" style="@style/WidgetCatText" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/cat2" style="@style/WidgetCat">
+            <ImageView android:id="@+id/cat2_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/widget_dot" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/cat2_name" style="@style/WidgetCatText" />
+        </LinearLayout>
+    </LinearLayout>
+    <LinearLayout android:id="@+id/cat_row2" android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal">
+        <LinearLayout android:id="@+id/cat3" style="@style/WidgetCat">
+            <ImageView android:id="@+id/cat3_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/widget_dot" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/cat3_name" style="@style/WidgetCatText" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/cat4" style="@style/WidgetCat">
+            <ImageView android:id="@+id/cat4_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/widget_dot" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/cat4_name" style="@style/WidgetCatText" />
+        </LinearLayout>
+        <LinearLayout android:id="@+id/cat5" style="@style/WidgetCat">
+            <ImageView android:id="@+id/cat5_dot" android:layout_width="8dp" android:layout_height="8dp" android:src="@drawable/widget_dot" android:importantForAccessibility="no" />
+            <TextView android:id="@+id/cat5_name" style="@style/WidgetCatText" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>

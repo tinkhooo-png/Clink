@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_desc">금액을 누르고 카테고리를 고르면 바로 기록돼요</string>
+    <string name="widget_summary_desc">이번 달과 오늘 쓴 돈을 보여 줘요</string>
+</resources>

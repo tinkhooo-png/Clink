@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="widget_canvas">#17171C</color>
+    <color name="widget_surface">#24242B</color>
+    <color name="widget_fg">#F5F6F8</color>
+    <color name="widget_body">#DCDEE3</color>
+    <color name="widget_sub">#A5A8B0</color>
+    <color name="widget_placeholder">#5F626B</color>
+    <color name="widget_weak_bg">#3A2318</color>
+    <color name="widget_weak_fg">#FFB387</color>
+    <color name="widget_primary">#C45000</color>
+</resources>
