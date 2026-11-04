@@ -1,6 +1,6 @@
 import { uid, todayStr } from './format.js';
 
-export const PALETTE = ['#3182f6', '#03b26c', '#fe9800', '#f04452', '#a234c7', '#18a5a5', '#ffc342', '#8b95a1'];
+export const PALETTE = ['#ff803d', '#fe9800', '#ffc342', '#03b26c', '#18a5a5', '#3182f6', '#5b5fe0', '#a234c7', '#f04452', '#f66da0', '#8d6e57', '#8b95a1'];
 
 const DEFAULT_CATEGORIES = [
   { name: '주유비', type: 'expense', color: '#fe9800', icon: 'fuel' },

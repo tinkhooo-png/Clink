@@ -1,16 +1,20 @@
-import { pad, weekStart } from './format.js';
+import { pad, weekStart, addDays } from './format.js';
 
 export function periodPrefix(p) {
   if (p.period === 'all') return '';
+  if (p.period === 'day') return p.date;
   if (p.period === 'year') return String(p.year);
   return `${p.year}-${pad(p.month)}`;
 }
 export const inPeriod = (entries, p) => {
+  if (p.period === 'week') { const ws = weekStart(p.date); return entries.filter((e) => weekStart(e.date) === ws); }
   const pre = periodPrefix(p);
   return pre ? entries.filter((e) => e.date.startsWith(pre)) : entries.slice();
 };
 
 export function previousPeriod(p) {
+  if (p.period === 'day') return { ...p, date: addDays(p.date, -1) };
+  if (p.period === 'week') return { ...p, date: addDays(p.date, -7) };
   if (p.period === 'month') {
     return p.month === 1 ? { ...p, year: p.year - 1, month: 12 } : { ...p, month: p.month - 1 };
   }
@@ -51,6 +55,18 @@ export function byCategory(entries, categories, catMap) {
 /** 추이 막대: 월별=일, 연별=월, 전체=연. 지출 기준. */
 export function trend(entries, p, catMap) {
   const exp = entries.filter((e) => !isIncome(catMap, e));
+  if (p.period === 'day') {
+    // 시간대별 (기록한 시각 기준)
+    const buckets = Array.from({ length: 24 }, (_, i) => ({ key: i, label: String(i), sum: 0 }));
+    for (const e of exp) buckets[e.createdAt ? new Date(e.createdAt).getHours() : 0].sum += e.amount;
+    return buckets;
+  }
+  if (p.period === 'week') {
+    const ws = weekStart(p.date);
+    const buckets = Array.from({ length: 7 }, (_, i) => ({ key: addDays(ws, i), label: '월화수목금토일'[i], sum: 0 }));
+    for (const e of exp) { const b = buckets.find((x) => x.key === e.date); if (b) b.sum += e.amount; }
+    return buckets;
+  }
   if (p.period === 'month') {
     const days = new Date(p.year, p.month, 0).getDate();
     const buckets = Array.from({ length: days }, (_, i) => ({ key: i + 1, label: String(i + 1), sum: 0 }));

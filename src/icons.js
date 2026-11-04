@@ -6,6 +6,7 @@ const solid = (d) => `<svg viewBox="0 0 28 28" fill="currentColor" aria-hidden="
 export const icons = {
   // 탭 바 (채움형)
   tabRecord: solid('<path fill-rule="evenodd" d="M14 2.5C7.65 2.5 2.5 7.65 2.5 14S7.65 25.5 14 25.5 25.5 20.35 25.5 14 20.35 2.5 14 2.5Zm1.4 6.6a1.4 1.4 0 1 0-2.8 0v3.5H9.1a1.4 1.4 0 1 0 0 2.8h3.5v3.5a1.4 1.4 0 1 0 2.8 0v-3.5h3.5a1.4 1.4 0 1 0 0-2.8h-3.5V9.1Z"/>'),
+  tabCalendar: solid('<path fill-rule="evenodd" d="M9 2.5a1.5 1.5 0 0 1 1.5 1.5v1h7V4a1.5 1.5 0 0 1 3 0v1h.5A4.5 4.5 0 0 1 25.5 9.5v12A4.5 4.5 0 0 1 21 26H7a4.5 4.5 0 0 1-4.5-4.5v-12A4.5 4.5 0 0 1 7 5h.5V4A1.5 1.5 0 0 1 9 2.5ZM5.5 12v9.5A1.5 1.5 0 0 0 7 23h14a1.5 1.5 0 0 0 1.5-1.5V12h-17Zm3 2.5h3v3h-3v-3Zm5 0h3v3h-3v-3Z"/>'),
   tabStats: solid('<rect x="3.5" y="13" width="5.5" height="11.5" rx="2"/><rect x="11.25" y="4" width="5.5" height="20.5" rx="2"/><rect x="19" y="9" width="5.5" height="15.5" rx="2"/>'),
   tabMy: solid('<circle cx="14" cy="9" r="5.5"/><path d="M3.5 23.2c0-4.3 4.7-7.7 10.5-7.7s10.5 3.4 10.5 7.7c0 .99-.8 1.8-1.8 1.8H5.3c-1 0-1.8-.81-1.8-1.8Z"/>'),
 

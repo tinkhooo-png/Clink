@@ -5,11 +5,12 @@ import './styles.css';
 
 import { Store, PALETTE } from './store.js';
 import { icons } from './icons.js';
-import { glassIcon, guessIcon, CATEGORY_ICONS, GLASS_DEFS, HERO } from './glass.js';
+import { glassIcon, guessIcon, CATEGORY_ICONS, GLASS_DEFS, HERO, ICONS } from './glass.js';
+const ICON_LABEL = (k) => ICONS[k]?.label ?? k;
 import { anim, EASE, countUp, flyCoin, shake, pop, reduced, HERO_PLAY } from './motion.js';
 import { logoSvg } from './logo.js';
 import {
-  comma, won, todayStr, relLabel, dateLabel, weekLabel, digitsToInt, esc, MAX_AMOUNT, parseYmd, addDays, uid,
+  comma, won, pad, todayStr, relLabel, dateLabel, weekLabel, weekStart, digitsToInt, esc, MAX_AMOUNT, parseYmd, addDays, uid,
 } from './format.js';
 import { initGestures } from './gestures.js';
 import { inPeriod, previousPeriod, summarize, byCategory, trend, buildList, monthIndex, isIncome } from './stats.js';
@@ -26,7 +27,9 @@ const mqXWide = matchMedia('(min-width: 1280px)'); // 2단 PC 배치
 const ui = {
   tab: 'record',
   rec: { amount: 0, date: todayStr(), memo: '', hint: '', warn: false },
-  st: { period: 'month', year: now.getFullYear(), month: now.getMonth() + 1, sort: 'date', dir: 'desc', group: 'day', filterCats: new Set(), limit: 60, anim: false },
+  st: { period: 'month', date: todayStr(), year: now.getFullYear(), month: now.getMonth() + 1, sort: 'date', dir: 'desc', group: 'day', filterCats: new Set(), limit: 60, anim: false },
+  cal: { view: 'month', date: todayStr(), mode: 'item', filterCats: new Set() },
+  recOpen: false,
   drawer: false,
   sheet: null,
   justAdded: null,
@@ -44,7 +47,7 @@ document.body.appendChild(layer);
    공통 조각
 ================================================================= */
 const catIcon = (c) => c?.icon || guessIcon(c?.name, c?.type);
-const mark = (c, size = 28) => `<span class="cat-mark" style="width:${size}px;height:${size}px">${glassIcon(catIcon(c), size)}</span>`;
+const mark = (c, size = 28) => `<span class="cat-mark" style="width:${size}px;height:${size}px">${glassIcon(catIcon(c), size, '', c?.color)}</span>`;
 
 const signed = (e, catMap) => (isIncome(catMap, e) ? `<span class="income-text">+${comma(e.amount)}원</span>` : won(e.amount));
 
@@ -59,9 +62,9 @@ const shortDay = (s) => { const d = parseYmd(s); return `${d.getMonth() + 1}월 
 
 function entryRow(e, catMap, { showDate = false } = {}) {
   const c = catMap.get(e.categoryId);
-  const title = e.memo ? esc(e.memo) : esc(c?.name ?? '삭제된 카테고리');
+  const title = esc(c?.name ?? '삭제된 카테고리');
   const subParts = [];
-  if (e.memo) subParts.push(esc(c?.name ?? ''));
+  if (e.memo) subParts.push(esc(e.memo));
   subParts.push(showDate ? relLabel(e.date) : timeOf(e.createdAt));
   if (e.source === 'widget') subParts.push('위젯');
   return `<li class="${e.id === ui.justAdded ? 'is-new' : ''}"><button class="row-btn" data-act="edit-entry" data-id="${e.id}">
@@ -87,10 +90,10 @@ const tableHead = (first) => `<div class="thead"><span>${first === 'time' ? '시
    기록 화면
 ================================================================= */
 const hintHtml = () => (ui.rec.hint ? `${ui.rec.warn ? glassIcon('alert', 18) : ''}<span>${esc(ui.rec.hint)}</span>` : '');
+const shortWon = (n) => (n >= 1e6 ? compact(n) : comma(n));
 
-function recordInputs({ pc = false } = {}) {
+function recordTopbar(pc) {
   const { rec } = ui;
-  const cats = store.sortedCategories.filter((c) => !c.hidden);
   const offline = store.state.mode === 'cloud' && store.state.sync === 'offline';
   const isToday = rec.date === todayStr();
   const dateText = pc
@@ -103,25 +106,12 @@ function recordInputs({ pc = false } = {}) {
         <span class="date-text">${dateText}</span>${pc ? icons.down : icons.updown}
       </button>
       <input type="date" id="rec-date" class="sr-only" tabindex="-1" value="${rec.date}" max="${todayStr()}" data-input="rec-date">
-    </header>
+    </header>`;
+}
 
-    <label class="label" for="amount">얼마인가요?</label>
-    <div class="amount-field" id="amount-field">
-      <input id="amount" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done"
-        placeholder="0" value="${rec.amount ? comma(rec.amount) : ''}" data-input="amount" aria-describedby="amount-hint">
-      <span class="unit">원</span>
-      <button class="icon-btn clear" data-act="clear-amount" aria-label="금액 지우기" ${rec.amount ? '' : 'hidden'}>${icons.clear}</button>
-    </div>
-    <div class="amount-rule"></div>
-    <div class="amount-hint ${rec.warn ? 'warn' : ''}" id="amount-hint" aria-live="polite">${hintHtml()}</div>
-
-    <div class="quick-row" role="group" aria-label="금액 더하기">
-      ${[10, 100, 1000, 10000].map((n) => `<button class="btn weak small" data-act="add-amount" data-n="${n}">+${comma(n)}원</button>`).join('')}
-    </div>
-
-    <input id="memo" class="memo-input" type="text" maxlength="40" placeholder="메모 (선택)" value="${esc(rec.memo)}" data-input="memo" aria-label="메모">
-
-    <section class="section" aria-labelledby="t-cats">
+function categoriesHtml(pc) {
+  const cats = store.sortedCategories.filter((c) => !c.hidden);
+  return `<section class="cat-sec" aria-labelledby="t-cats">
       <div class="section-head">
         <h2 id="t-cats">카테고리를 누르면 기록돼요</h2>
         <button class="btn neutral small" data-act="go-tab" data-tab="my">편집</button>
@@ -133,14 +123,47 @@ function recordInputs({ pc = false } = {}) {
         </button>`).join('')}
       </div>` : `<div class="card"><p class="hint" style="margin:0 0 12px">아직 카테고리가 없어요. 먼저 카테고리를 만들어 주세요.</p>
         <button class="btn primary medium" data-act="new-category">카테고리 만들기</button></div>`}
-      ${pc ? '<p class="hint" style="margin-top:16px">키보드: 숫자로 금액 입력, Alt+1·2·3…으로 카테고리 바로 저장</p>' : ''}
+      ${pc ? '<p class="hint" style="margin-top:12px">키보드: 숫자로 금액 입력, Alt+1·2·3…으로 카테고리 바로 저장</p>' : ''}
     </section>`;
+}
+
+function amountHtml() {
+  const { rec } = ui;
+  return `<section class="entry-area" aria-label="금액 입력">
+    <label class="label" for="amount">얼마인가요?</label>
+    <div class="amount-field" id="amount-field">
+      <input id="amount" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done"
+        placeholder="0" value="${rec.amount ? comma(rec.amount) : ''}" data-input="amount" aria-describedby="amount-hint">
+      <span class="unit">원</span>
+      <button class="icon-btn clear" data-act="clear-amount" aria-label="금액 지우기" ${rec.amount ? '' : 'hidden'}>${icons.clear}</button>
+    </div>
+    <div class="amount-rule"></div>
+    <div class="amount-hint ${rec.warn ? 'warn' : ''}" id="amount-hint" aria-live="polite">${hintHtml()}</div>
+    <div class="quick-row" role="group" aria-label="금액 더하기">
+      ${[10, 100, 1000, 10000].map((n) => `<button class="btn weak small" data-act="add-amount" data-n="${n}">+${comma(n)}원</button>`).join('')}
+    </div>
+    <input id="memo" class="memo-input" type="text" maxlength="40" placeholder="메모 (선택)" value="${esc(rec.memo)}" data-input="memo" aria-label="메모" enterkeyhint="done">
+  </section>`;
 }
 
 function dayEntriesOf(date) {
   return store.state.entries.filter((e) => e.date === date).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
 }
-const emptyDay = () => `<div class="card today-card">${glassIcon('receipt', 40, 'float')}<div class="grow"><strong style="color:var(--foreground)">아직 기록이 없어요</strong><div class="hint">금액을 입력하고 카테고리를 눌러 보세요.</div></div></div>`;
+const emptyDay = (small = false) => `<div class="card today-card ${small ? 'small' : ''}">${glassIcon('receipt', small ? 32 : 40, 'float')}<div class="grow"><strong style="color:var(--foreground)">아직 기록이 없어요</strong><div class="hint">${small ? '아래에서 금액을 넣고 카테고리를 눌러 보세요.' : '금액을 입력하고 카테고리를 눌러 보세요.'}</div></div></div>`;
+
+/** 오늘 기록: 5열 작은 카드. 1줄 반만 보이고 펼치면 전부 */
+function miniCards(dayEntries, catMap) {
+  const many = dayEntries.length > 5;
+  return `<div class="mini-wrap ${ui.recOpen ? 'open' : ''} ${many ? 'many' : ''}"><div class="mini-grid" id="mini-grid">
+    ${dayEntries.map((e) => {
+      const c = catMap.get(e.categoryId);
+      const inc = isIncome(catMap, e);
+      return `<button class="mini ${e.id === ui.justAdded ? 'is-new' : ''}" data-act="edit-entry" data-id="${e.id}" title="${esc(c?.name ?? '')}${e.memo ? ` · ${esc(e.memo)}` : ''} ${won(e.amount)}">
+        ${mark(c, 24)}<span class="m-amt ${inc ? 'income-text' : ''}">${inc ? '+' : ''}${shortWon(e.amount)}</span><span class="m-name">${esc(c?.name ?? '삭제됨')}</span></button>`;
+    }).join('')}
+  </div></div>
+  ${many ? `<button class="expand" data-act="toggle-today" aria-expanded="${!!ui.recOpen}">${ui.recOpen ? icons.up : icons.down}<span>${ui.recOpen ? '접기' : `${dayEntries.length}건 모두 보기`}</span></button>` : ''}`;
+}
 
 function renderRecord() {
   const { rec } = ui;
@@ -149,6 +172,7 @@ function renderRecord() {
   const daySum = summarize(dayEntries, catMap);
   const isToday = rec.date === todayStr();
   const aside = dayEntries.length ? `${dayEntries.length}건 · ${won(daySum.expense)}${daySum.income ? ` · +${comma(daySum.income)}원` : ''}` : '';
+  const dayTitle = `${isToday ? '오늘' : esc(relLabel(rec.date))} 기록`;
 
   if (xwide()) {
     // 이번 달 요약: 지난달 같은 날까지와 비교
@@ -161,28 +185,28 @@ function renderRecord() {
     const diff = cur - before;
     const cmp = before ? (diff === 0 ? '지난달 이맘때와 같아요' : `지난달 이맘때보다 ${won(Math.abs(diff))} ${diff > 0 ? '더 썼어요' : '덜 썼어요'}`) : '지난달 기록이 없어요';
     return `<main class="screen pc-record" aria-labelledby="t-record">
-      <section class="input-col">${recordInputs({ pc: true })}</section>
+      <section class="input-col">${recordTopbar(true)}${categoriesHtml(true)}${amountHtml()}</section>
       <section class="side-col">
         <div class="card month-card">${glassIcon('wallet', 48)}
           <div class="grow"><div class="label">${m}월 지출</div><div class="amount-l num">${won(cur)}</div><div class="hint">${cmp}</div></div>
           <button class="btn neutral medium" data-act="go-month" data-y="${y}" data-m="${m}">통계 보기</button></div>
         <div class="card outline day-card">
-          <div class="section-head"><h2 id="t-day">${isToday ? '오늘' : esc(relLabel(rec.date))} 기록</h2><span class="aside num">${aside}</span></div>
+          <div class="section-head"><h2 id="t-day">${dayTitle}</h2><span class="aside num">${aside}</span></div>
           ${dayEntries.length ? `<div class="table">${tableHead('time')}${dayEntries.map((e) => tableRow(e, catMap, 'time')).join('')}</div>` : emptyDay()}
         </div>
       </section>
     </main>`;
   }
 
-  return `<main class="screen" aria-labelledby="t-record">
-    ${recordInputs()}
-    <section class="section" aria-labelledby="t-day">
-      <div class="section-head">
-        <h2 id="t-day">${isToday ? '오늘' : esc(relLabel(rec.date))} 기록</h2>
-        <span class="aside num">${aside}</span>
-      </div>
-      ${dayEntries.length ? `<ul class="list day-list">${dayEntries.map((e) => entryRow(e, catMap)).join('')}</ul>` : emptyDay()}
+  // 휴대폰: 위에서부터 오늘 기록 → 카테고리 → 금액 · 더하기 · 메모 (엄지가 닿는 아래쪽에 입력)
+  return `<main class="screen record-screen" aria-labelledby="t-record">
+    ${recordTopbar(false)}
+    <section class="today-sec" aria-labelledby="t-day">
+      <div class="section-head"><h2 id="t-day">${dayTitle}</h2><span class="aside num">${aside}</span></div>
+      ${dayEntries.length ? miniCards(dayEntries, catMap) : emptyDay(true)}
     </section>
+    ${categoriesHtml(false)}
+    ${amountHtml()}
   </main>`;
 }
 
@@ -223,7 +247,7 @@ function saveWithCategory(catId, btn) {
   const firstOfMonth = !store.state.entries.some((e) => e.date.startsWith(month));
   // 동전이 날아갈 출발·도착 자리 (다시 그리기 전에 잰다)
   const fromRect = btn?.querySelector('.gi')?.getBoundingClientRect();
-  const toRect = document.querySelector('.day-list li, .day-card .trow, .today-card')?.getBoundingClientRect();
+  const toRect = document.querySelector('.mini-grid .mini, .day-card .trow, .today-card')?.getBoundingClientRect();
 
   const id = uid();
   ui.justAdded = id;
@@ -247,12 +271,38 @@ function saveWithCategory(catId, btn) {
 ================================================================= */
 function periodTitle(p, long = false) {
   if (p.period === 'all') return '전체 기간';
+  if (p.period === 'day') {
+    const d = parseYmd(p.date);
+    return `${d.getFullYear() !== now.getFullYear() ? `${d.getFullYear()}년 ` : ''}${d.getMonth() + 1}월 ${d.getDate()}일 (${WD[d.getDay()]})`;
+  }
+  if (p.period === 'week') return `${parseYmd(p.date).getFullYear() !== now.getFullYear() ? `${parseYmd(p.date).getFullYear()}년 ` : ''}${weekLabel(weekStart(p.date))}`;
   if (p.period === 'year') return `${p.year}년`;
   return p.year === now.getFullYear() && !long ? `${p.month}월` : `${p.year}년 ${p.month}월`;
 }
 
+const minDate = (d) => (d > todayStr() ? todayStr() : d);
+/** 기간 종류를 바꿀 때 날짜·연·월을 서로 맞춘다 */
+function setStatsPeriod(v) {
+  const p = ui.st, prevKind = p.period;
+  if ((v === 'day' || v === 'week') && (prevKind === 'month' || prevKind === 'year')) {
+    const t = todayStr();
+    const inSame = prevKind === 'month' ? t.startsWith(`${p.year}-${pad(p.month)}`) : t.startsWith(String(p.year));
+    p.date = inSame ? t : (prevKind === 'month' ? `${p.year}-${pad(p.month)}-01` : `${p.year}-01-01`);
+  }
+  if ((v === 'month' || v === 'year') && (prevKind === 'day' || prevKind === 'week')) {
+    const d = parseYmd(p.date); p.year = d.getFullYear(); p.month = d.getMonth() + 1;
+  }
+  p.period = v;
+}
+
 function averageLine(p, sum, entries) {
   const t = new Date();
+  if (p.period === 'day') return ['한 건 평균', won(entries.length ? Math.round(sum / entries.length) : 0)];
+  if (p.period === 'week') {
+    const ws = weekStart(p.date), cur = ws === weekStart(todayStr());
+    const days = cur ? ((t.getDay() + 6) % 7) + 1 : 7;
+    return ['하루 평균', won(Math.round(sum / days))];
+  }
   if (p.period === 'month') {
     const dim = new Date(p.year, p.month, 0).getDate();
     const cur = p.year === t.getFullYear() && p.month === t.getMonth() + 1;
@@ -279,7 +329,8 @@ function statsData(p) {
   const prev = previousPeriod(p);
   if (prev) {
     const ps = summarize(inPeriod(all, prev), catMap);
-    const word = p.period === 'month' ? '지난달' : '작년';
+    const isNow = p.period === 'day' ? p.date === todayStr() : p.period === 'week' ? weekStart(p.date) === weekStart(todayStr()) : true;
+    const word = { day: isNow ? '어제' : '전날', week: isNow ? '지난주' : '전주', month: '지난달', year: '작년' }[p.period];
     if (ps.expense > 0) {
       const d = sum.expense - ps.expense;
       compare = d === 0 ? `${word}과 같아요` : `${word}보다 ${won(Math.abs(d))} ${d > 0 ? '더 썼어요' : '덜 썼어요'}`;
@@ -298,7 +349,7 @@ function statsData(p) {
 }
 
 function summaryCard(p, d) {
-  const tag = p.period === 'all' ? 'div' : 'button';
+  const tag = p.period === 'month' || p.period === 'year' ? 'button' : 'div';
   return `<${tag} class="card summary" ${tag === 'button' ? `data-act="report" aria-label="${periodTitle(p)} 정리 보기"` : ''}>
       <div class="label">${p.period === 'all' ? '전체' : periodTitle(p, xwide())} 지출</div>
       <div class="amount-xl num">${won(d.sum.expense)}</div>
@@ -311,18 +362,20 @@ function trendHtml(p, d, animate) {
   const bars = trend(d.entries, p, d.catMap);
   const max = Math.max(0, ...bars.map((b) => b.sum));
   const t = new Date();
-  const curKey = p.period === 'month'
-    ? (p.year === t.getFullYear() && p.month === t.getMonth() + 1 ? t.getDate() : -1)
-    : p.period === 'year' ? (p.year === t.getFullYear() ? t.getMonth() + 1 : -1) : t.getFullYear();
+  const curKey = p.period === 'day' ? (p.date === todayStr() ? t.getHours() : -1)
+    : p.period === 'week' ? todayStr()
+    : p.period === 'month'
+      ? (p.year === t.getFullYear() && p.month === t.getMonth() + 1 ? t.getDate() : -1)
+      : p.period === 'year' ? (p.year === t.getFullYear() ? t.getMonth() + 1 : -1) : t.getFullYear();
   if (!bars.length) return '';
   return `<div class="trend ${animate ? 'animate' : ''}" role="list">
     ${bars.map((b, i) => {
       const h = max ? Math.max(2, (b.sum / max) * 100) : 2;
-      const showLabel = p.period !== 'month' || b.key === 1 || b.key % 5 === 0;
+      const showLabel = p.period === 'day' ? b.key % 6 === 0 : p.period !== 'month' || b.key === 1 || b.key % 5 === 0;
       const tip = b.sum === max && max > 0 ? `<span class="tip num">${compact(b.sum)}</span>` : '';
-      const clickable = p.period !== 'month';
+      const clickable = p.period !== 'day';
       const tag = clickable ? 'button' : 'div';
-      const name = p.period === 'month' ? `${b.key}일` : p.period === 'year' ? `${b.key}월` : `${b.key}년`;
+      const name = { day: `${b.key}시`, week: `${b.label}요일`, month: `${b.key}일`, year: `${b.key}월`, all: `${b.key}년` }[p.period];
       return `<${tag} class="bar-col ${b.key === curKey ? 'on' : ''}" role="listitem" ${clickable ? `data-act="drill" data-key="${b.key}"` : ''} aria-label="${name} ${won(b.sum)}" style="--i:${i}">
         ${tip}<span class="b" style="height:calc(${h}% - 34px)"></span><span class="x">${showLabel ? b.label : ''}</span></${tag}>`;
     }).join('')}
@@ -407,10 +460,10 @@ function periodNav(p) {
       ${p.period !== 'all' ? `<button class="icon-btn" data-act="shift" data-d="1" aria-label="다음 기간">${icons.right}</button>` : ''}
     </div>`;
 }
-const segment = (p) => `<div class="segment" role="group" aria-label="통계 기간">
-    ${[['month', '월별'], ['year', '연별'], ['all', '전체']].map(([v, l]) => `<button data-act="period" data-v="${v}" aria-pressed="${p.period === v}">${l}</button>`).join('')}
+const segment = (p) => `<div class="segment seg5" role="group" aria-label="통계 기간">
+    ${[['day', '일별'], ['week', '주별'], ['month', '월별'], ['year', '연별'], ['all', '전체']].map(([v, l]) => `<button data-act="period" data-v="${v}" aria-pressed="${p.period === v}">${l}</button>`).join('')}
   </div>`;
-const trendTitle = (p) => ({ month: '일별 지출', year: '월별 지출', all: '연도별 지출' }[p.period]);
+const trendTitle = (p) => ({ day: '시간대별 지출', week: '요일별 지출', month: '일별 지출', year: '월별 지출', all: '연도별 지출' }[p.period]);
 const emptyStats = () => `<div class="empty">${glassIcon('chart', 72, 'float')}<strong>이 기간에는 기록이 없어요</strong><p>기록 탭에서 금액을 남기면 여기에 모여요.</p></div>`;
 
 function renderStats(animate) {
@@ -426,7 +479,7 @@ function renderStats(animate) {
         <header class="pc-head">${periodNav(p)}${segment(p)}</header>
         <div class="pc-grid">
           ${summaryCard(p, d)}
-          <section class="card outline" aria-labelledby="t-trend"><div class="section-head"><h2 id="t-trend">${trendTitle(p)}</h2>${p.period !== 'month' ? '<span class="aside">막대를 누르면 자세히 봐요</span>' : ''}</div>
+          <section class="card outline" aria-labelledby="t-trend"><div class="section-head"><h2 id="t-trend">${trendTitle(p)}</h2>${p.period !== 'day' ? '<span class="aside">막대를 누르면 자세히 봐요</span>' : ''}</div>
             ${empty ? '<p class="hint">이 기간에는 기록이 없어요.</p>' : trendHtml(p, d, animate)}</section>
           <section class="card outline" aria-labelledby="t-bycat"><div class="section-head"><h2 id="t-bycat">카테고리별</h2></div>
             ${empty ? emptyStats() : catStatsHtml(d, animate)}</section>
@@ -447,7 +500,7 @@ function renderStats(animate) {
     ${summaryCard(p, d)}
     ${empty ? emptyStats() : `
     <section class="section" aria-labelledby="t-trend">
-      <div class="section-head"><h2 id="t-trend">${trendTitle(p)}</h2>${p.period !== 'month' ? '<span class="aside">막대를 누르면 자세히 봐요</span>' : ''}</div>
+      <div class="section-head"><h2 id="t-trend">${trendTitle(p)}</h2>${p.period !== 'day' ? '<span class="aside">막대를 누르면 자세히 봐요</span>' : ''}</div>
       ${trendHtml(p, d, animate)}
     </section>
     <section class="section" aria-labelledby="t-bycat">
@@ -482,6 +535,151 @@ function periodPanel(closable) {
       </div></div>`).join('')}`;
 }
 const renderDrawer = () => `<div class="scrim" data-act="close-overlay"></div><nav class="drawer" aria-label="연도·월 이동">${periodPanel(true)}</nav>`;
+
+/* =================================================================
+   달력 화면: 일·주·월·연 달력 × 건별·카테고리별·합계별
+================================================================= */
+const CAL_VIEWS = [['day', '일별'], ['week', '주별'], ['month', '월별'], ['year', '연별']];
+const CAL_MODES = [['item', '건별'], ['category', '카테고리별'], ['total', '합계별']];
+
+function calTitle(c) {
+  const d = parseYmd(c.date);
+  const y = d.getFullYear(), m = d.getMonth() + 1;
+  if (c.view === 'year') return `${y}년`;
+  if (c.view === 'month') return `${y}년 ${m}월`;
+  if (c.view === 'week') return `${y !== now.getFullYear() ? `${y}년 ` : ''}${weekLabel(weekStart(c.date))}`;
+  return `${y !== now.getFullYear() ? `${y}년 ` : ''}${m}월 ${d.getDate()}일 (${WD[d.getDay()]})`;
+}
+
+function calEntries(c) {
+  const d = parseYmd(c.date);
+  const y = d.getFullYear(), m = d.getMonth() + 1;
+  let list;
+  if (c.view === 'year') list = store.state.entries.filter((e) => e.date.startsWith(String(y)));
+  else if (c.view === 'month') list = store.state.entries.filter((e) => e.date.startsWith(`${y}-${pad(m)}`));
+  else if (c.view === 'week') { const ws = weekStart(c.date); list = store.state.entries.filter((e) => weekStart(e.date) === ws); }
+  else list = store.state.entries.filter((e) => e.date === c.date);
+  if (c.mode === 'category' && c.filterCats.size) list = list.filter((e) => c.filterCats.has(e.categoryId));
+  return list;
+}
+
+/** 한 칸(날·달)의 내용을 보기 방식에 맞게 */
+function calCell(list, catMap, { lines = 2, full = false } = {}) {
+  const c = ui.cal;
+  const money = (n) => (full ? won(n) : shortWon(n));
+  if (!list.length) return '';
+  if (c.mode === 'total') {
+    const s = summarize(list, catMap);
+    return `<span class="c-total num">${s.expense ? money(s.expense) : ''}${s.income ? `<span class="income-text">+${money(s.income)}</span>` : ''}</span>`;
+  }
+  let rows;
+  if (c.mode === 'category') {
+    const sums = new Map();
+    for (const e of list) sums.set(e.categoryId, (sums.get(e.categoryId) ?? 0) + e.amount);
+    rows = [...sums].sort((a, b) => b[1] - a[1]).map(([id, sum]) => ({ c: catMap.get(id), amount: sum, inc: catMap.get(id)?.type === 'income' }));
+  } else {
+    rows = list.slice().sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0)).map((e) => ({ c: catMap.get(e.categoryId), amount: e.amount, inc: isIncome(catMap, e) }));
+  }
+  const shown = rows.slice(0, lines);
+  return shown.map((r) => `<span class="c-line"><i style="background:${esc(r.c?.color ?? '#8b95a1')}"></i>${full ? `<em>${esc(r.c?.name ?? '')}</em>` : ''}<b class="${r.inc ? 'income-text' : ''}">${r.inc ? '+' : ''}${money(r.amount)}</b></span>`).join('')
+    + (rows.length > lines ? `<span class="c-more">+${rows.length - lines}</span>` : '');
+}
+
+function calMonth(c, list, catMap, big) {
+  const d = parseYmd(c.date);
+  const y = d.getFullYear(), m = d.getMonth();
+  const first = new Date(y, m, 1);
+  const start = new Date(y, m, 1 - first.getDay());
+  const weeks = Math.ceil((first.getDay() + new Date(y, m + 1, 0).getDate()) / 7);
+  const byDay = new Map();
+  for (const e of list) { const a = byDay.get(e.date) ?? []; a.push(e); byDay.set(e.date, a); }
+  const t = todayStr();
+  let cells = '';
+  for (let i = 0; i < weeks * 7; i++) {
+    const dd = new Date(start.getFullYear(), start.getMonth(), start.getDate() + i);
+    const key = `${dd.getFullYear()}-${pad(dd.getMonth() + 1)}-${pad(dd.getDate())}`;
+    const out = dd.getMonth() !== m;
+    const items = out ? [] : (byDay.get(key) ?? []);
+    cells += `<button class="c-day ${out ? 'out' : ''} ${key === t ? 'today' : ''} ${key > t ? 'future' : ''} ${dd.getDay() === 0 ? 'sun' : ''}" data-act="cal-open" data-view="day" data-date="${key}" ${out ? 'tabindex="-1" aria-hidden="true"' : `aria-label="${dd.getMonth() + 1}월 ${dd.getDate()}일 ${items.length}건"`}>
+      <span class="c-num">${dd.getDate()}</span>${calCell(items, catMap, { lines: big ? 3 : 2, full: big })}</button>`;
+  }
+  return `<div class="cal-month"><div class="c-week">${[...WD].map((w, i) => `<span class="${i === 0 ? 'sun' : ''}">${w}</span>`).join('')}</div><div class="c-grid">${cells}</div></div>`;
+}
+
+function calYear(c, list, catMap, big) {
+  const y = parseYmd(c.date).getFullYear();
+  const t = new Date();
+  return `<div class="cal-year">${Array.from({ length: 12 }, (_, i) => {
+    const items = list.filter((e) => Number(e.date.slice(5, 7)) === i + 1);
+    const cur = y === t.getFullYear() && i === t.getMonth();
+    return `<button class="c-mon ${cur ? 'today' : ''}" data-act="cal-open" data-view="month" data-date="${y}-${pad(i + 1)}-01" aria-label="${i + 1}월 ${items.length}건">
+      <span class="c-num">${i + 1}월${c.mode === 'item' && items.length ? ` <small>${items.length}건</small>` : ''}</span>${calCell(items, catMap, { lines: big ? 4 : 3, full: big })}</button>`;
+  }).join('')}</div>`;
+}
+
+function calWeek(c, list, catMap) {
+  const ws = weekStart(c.date), t = todayStr();
+  return `<div class="cal-week">${Array.from({ length: 7 }, (_, i) => {
+    const key = addDays(ws, i), d = parseYmd(key);
+    const items = list.filter((e) => e.date === key);
+    return `<div class="c-wday ${key === t ? 'today' : ''}">
+      <button class="c-wlabel" data-act="cal-open" data-view="day" data-date="${key}"><b>${WD[d.getDay()]}</b><span>${d.getMonth() + 1}.${d.getDate()}</span></button>
+      <div class="c-wbody">${items.length ? calDayChips(items, catMap) : '<span class="hint">—</span>'}</div></div>`;
+  }).join('')}</div>`;
+}
+
+function calDayChips(items, catMap) {
+  if (ui.cal.mode === 'category') {
+    const sums = new Map();
+    for (const e of items) sums.set(e.categoryId, (sums.get(e.categoryId) ?? 0) + e.amount);
+    return [...sums].sort((a, b) => b[1] - a[1]).map(([id, sum]) => { const cc = catMap.get(id); return `<span class="c-chip">${mark(cc, 18)}${esc(cc?.name ?? '')}<b class="${cc?.type === 'income' ? 'income-text' : ''}">${won(sum)}</b></span>`; }).join('');
+  }
+  return items.sort((a, b) => (a.createdAt ?? 0) - (b.createdAt ?? 0)).map((e) => { const cc = catMap.get(e.categoryId); return `<button class="c-chip" data-act="edit-entry" data-id="${e.id}">${mark(cc, 18)}${esc(cc?.name ?? '')}${e.memo ? `<small>${esc(e.memo)}</small>` : ''}<b class="${isIncome(catMap, e) ? 'income-text' : ''}">${won(e.amount)}</b></button>`; }).join('');
+}
+
+function calDay(c, list, catMap) {
+  if (!list.length) return `<div class="empty">${glassIcon('calendar', 64, 'float')}<strong>이 날은 기록이 없어요</strong><p>기록 탭에서 날짜를 이날로 바꾸면 남길 수 있어요.</p></div>`;
+  if (c.mode === 'category') return catStatsHtml({ entries: list, catMap, hasIncomeCats: store.state.categories.some((x) => x.type === 'income') }, false);
+  return `<ul class="list">${list.slice().sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0)).map((e) => entryRow(e, catMap)).join('')}</ul>`;
+}
+
+function renderCalendar() {
+  const c = ui.cal;
+  const catMap = store.catMap;
+  if ((c.view === 'day' || c.view === 'week') && c.mode === 'total') c.mode = 'item';
+  const list = calEntries(c);
+  const sum = summarize(list, catMap);
+  const big = xwide();
+  const totalOff = c.view === 'day' || c.view === 'week';
+  const filterCats = store.sortedCategories.filter((x) => !x.hidden || list.some((e) => e.categoryId === x.id));
+  const body = c.view === 'month' ? calMonth(c, list, catMap, big) : c.view === 'year' ? calYear(c, list, catMap, big) : c.view === 'week' ? calWeek(c, list, catMap) : calDay(c, list, catMap);
+  const isNow = c.view === 'day' ? c.date === todayStr() : c.view === 'week' ? weekStart(c.date) === weekStart(todayStr())
+    : c.view === 'month' ? c.date.slice(0, 7) === todayStr().slice(0, 7) : c.date.slice(0, 4) === todayStr().slice(0, 4);
+  return `<main class="screen cal-screen ${big ? 'pc-cal' : ''}" aria-labelledby="t-cal">
+    <header class="topbar stats-top cal-top">
+      <h1 class="cal-h1" id="t-cal">달력</h1>
+      <div class="period-nav">
+        <button class="icon-btn" data-act="cal-shift" data-d="-1" aria-label="이전">${icons.left}</button>
+        <h2 class="title">${calTitle(c)}</h2>
+        <button class="icon-btn" data-act="cal-shift" data-d="1" aria-label="다음">${icons.right}</button>
+      </div>
+      ${isNow ? '' : '<button class="btn neutral small cal-today" data-act="cal-today">오늘</button>'}
+    </header>
+    <div class="segment" role="group" aria-label="달력 단위">
+      ${CAL_VIEWS.map(([v, l]) => `<button data-act="cal-view" data-v="${v}" aria-pressed="${c.view === v}">${l}</button>`).join('')}
+    </div>
+    <div class="controls cal-controls">
+      <div class="control-row"><span class="label">보기</span><div class="chips">
+        ${CAL_MODES.map(([v, l]) => `<button class="chip" data-act="cal-mode" data-v="${v}" aria-pressed="${c.mode === v}" ${v === 'total' && totalOff ? 'aria-disabled="true" title="합계별은 월별·연별 달력에서 볼 수 있어요"' : ''}>${l}</button>`).join('')}
+      </div><span class="aside cal-sum num">${sum.count}건 · ${won(sum.expense)}${sum.income ? ` · <span class="income-text">+${comma(sum.income)}원</span>` : ''}</span></div>
+      ${c.mode === 'category' ? `<div class="chips cat-filter" role="group" aria-label="카테고리 고르기">
+        <button class="chip soft" data-act="cal-fcat" data-v="" aria-pressed="${c.filterCats.size === 0}">전체</button>
+        ${filterCats.map((x) => `<button class="chip soft" data-act="cal-fcat" data-v="${x.id}" aria-pressed="${c.filterCats.has(x.id)}"><span class="dot" style="background:${esc(x.color)}"></span>${esc(x.name)}</button>`).join('')}
+      </div>` : ''}
+    </div>
+    <section class="cal-body ${c.view}" aria-label="${calTitle(c)} 달력">${body}</section>
+  </main>`;
+}
 
 /* =================================================================
    마이 화면
@@ -560,7 +758,10 @@ function renderSheet() {
     body = `<h3 id="sheet-title">기록 고치기</h3>
       <div class="field"><label class="label" for="sh-amount">금액</label>
         <div class="amount-field" style="margin:0"><input id="sh-amount" type="text" inputmode="numeric" value="${sh.amount ? comma(sh.amount) : ''}" data-input="sh-amount" placeholder="0"><span class="unit">원</span></div>
-        <div class="amount-rule"></div></div>
+        <div class="amount-rule"></div>
+        <div class="quick-row" role="group" aria-label="금액 더하기">
+          ${[10, 100, 1000, 10000].map((n) => `<button class="btn weak small" data-act="sh-add" data-n="${n}">+${comma(n)}원</button>`).join('')}
+        </div></div>
       <div class="field"><span class="label">카테고리</span><div class="chips" style="flex-wrap:wrap">
         ${cats.map((c) => `<button class="chip" data-act="sh-cat" data-v="${c.id}" aria-pressed="${sh.categoryId === c.id}">${glassIcon(catIcon(c), 18)}${esc(c.name)}</button>`).join('')}
       </div></div>
@@ -580,9 +781,9 @@ function renderSheet() {
         <button data-act="sh-type" data-v="expense" aria-pressed="${sh.ctype === 'expense'}">지출</button>
         <button data-act="sh-type" data-v="income" aria-pressed="${sh.ctype === 'income'}">수입</button></div></div>
       <div class="field"><span class="label">아이콘</span><div class="icon-picker" role="group" aria-label="아이콘 고르기">
-        ${CATEGORY_ICONS.map((k) => `<button class="icon-pick" data-act="sh-icon" data-v="${k}" aria-pressed="${sh.icon === k}" aria-label="아이콘 ${k}">${glassIcon(k, 28)}</button>`).join('')}
+        ${CATEGORY_ICONS.map((k) => `<button class="icon-pick" data-act="sh-icon" data-v="${k}" aria-pressed="${sh.icon === k}" aria-label="아이콘 ${ICON_LABEL(k)}" title="${ICON_LABEL(k)}">${glassIcon(k, 28, '', sh.color)}</button>`).join('')}
       </div></div>
-      <div class="field"><span class="label">색 · 통계 막대에 쓰여요</span><div class="swatches" role="group" aria-label="색 고르기">
+      <div class="field"><span class="label">색</span><div class="swatches" role="group" aria-label="색 고르기">
         ${PALETTE.map((col) => `<button class="swatch" style="background:${col}" data-act="sh-color" data-v="${col}" aria-pressed="${sh.color === col}" aria-label="색 ${col}"></button>`).join('')}
       </div></div>
       <div class="field-error" aria-live="polite">${esc(sh.error ?? '')}</div>
@@ -651,7 +852,7 @@ function popupContent(kind, ctx = {}) {
     const e = ctx.entry, c = store.catMap.get(e.categoryId);
     const where = store.state.mode === 'cloud' ? '삭제하면 모든 기기에서 사라져요.' : '삭제하면 이 기기에서 사라져요.';
     const d = parseYmd(e.date);
-    return { hero: 'delete', title: '이 기록을 삭제할까요?', body: `${esc(e.memo || c?.name || '기록')} · ${won(e.amount)} · ${d.getMonth() + 1}월 ${d.getDate()}일<br>${where}`, btns: [['취소', 'neutral', 'cancel'], ['삭제하기', 'danger-fill', 'delete']] };
+    return { hero: 'delete', title: '이 기록을 삭제할까요?', body: `${esc(c?.name || '기록')}${e.memo ? ` · ${esc(e.memo)}` : ''} · ${won(e.amount)} · ${d.getMonth() + 1}월 ${d.getDate()}일<br>${where}`, btns: [['취소', 'neutral', 'cancel'], ['삭제하기', 'danger-fill', 'delete']] };
   }
   if (kind === 'sync') return { hero: 'sync', title: '동기화를 켰어요', body: '휴대폰과 PC에서 같은 기록을<br>바로 볼 수 있어요.', btns: [['확인', 'primary', 'ok']] };
   if (kind === 'report') {
@@ -770,12 +971,15 @@ function maybeMonthlyReport() {
 ================================================================= */
 const TABS = [
   ['record', '기록', icons.tabRecord],
+  ['calendar', '달력', icons.tabCalendar],
   ['stats', '통계', icons.tabStats],
   ['my', '마이', icons.tabMy],
 ];
 
 function renderTab(tab, animate = false) {
-  return tab === 'record' ? renderRecord() : tab === 'stats' ? renderStats(animate) : renderMy();
+  if (tab === 'record') return renderRecord();
+  if (tab === 'calendar') return renderCalendar();
+  return tab === 'stats' ? renderStats(animate) : renderMy();
 }
 
 function render() {
@@ -859,23 +1063,48 @@ const actions = {
   },
   'cat-move': (el) => store.moveCategory(el.dataset.id, Number(el.dataset.d)),
   'widget-guide': () => openPopup('widget'),
-  report: () => { if (ui.st.period !== 'all') openPopup('report', { p: { ...ui.st } }); },
+  report: () => { if (ui.st.period === 'month' || ui.st.period === 'year') openPopup('report', { p: { ...ui.st } }); },
+  'toggle-today': () => { ui.recOpen = !ui.recOpen; render(); },
+  'sh-add': (el) => {
+    const sh = ui.sheet;
+    sh.amount = Math.min(MAX_AMOUNT, (sh.amount || 0) + Number(el.dataset.n));
+    const inp = document.getElementById('sh-amount'); if (inp) inp.value = comma(sh.amount);
+  },
+
+  // 달력
+  'cal-view': (el) => { ui.cal.view = el.dataset.v; if ((ui.cal.view === 'day' || ui.cal.view === 'week') && ui.cal.mode === 'total') ui.cal.mode = 'item'; render(); },
+  'cal-mode': (el) => { ui.cal.mode = el.dataset.v; if (ui.cal.mode !== 'category') ui.cal.filterCats.clear(); render(); },
+  'cal-fcat': (el) => { const v = el.dataset.v, f = ui.cal.filterCats; if (!v) f.clear(); else if (f.has(v)) f.delete(v); else f.add(v); render(); },
+  'cal-shift': (el) => {
+    const d = Number(el.dataset.d), c = ui.cal, dt = parseYmd(c.date);
+    if (c.view === 'day') c.date = addDays(c.date, d);
+    else if (c.view === 'week') c.date = addDays(c.date, d * 7);
+    else if (c.view === 'month') { const n = new Date(dt.getFullYear(), dt.getMonth() + d, 1); c.date = `${n.getFullYear()}-${pad(n.getMonth() + 1)}-01`; }
+    else c.date = `${dt.getFullYear() + d}-01-01`;
+    render();
+  },
+  'cal-today': () => { ui.cal.date = todayStr(); render(); },
+  'cal-open': (el) => { ui.cal.view = el.dataset.view; ui.cal.date = el.dataset.date; if (ui.cal.view !== 'month' && ui.cal.mode === 'total') ui.cal.mode = 'item'; render(); window.scrollTo(0, 0); },
 
   // 통계
   drawer: () => { ui.drawer = true; render(); },
   'close-overlay': () => closeOverlay(),
-  period: (el) => { ui.st.limit = 60; ui.st.period = el.dataset.v; ui.st.anim = true; render(); },
+  period: (el) => { ui.st.limit = 60; setStatsPeriod(el.dataset.v); ui.st.anim = true; render(); },
   shift: (el) => {
     const d = Number(el.dataset.d);
     const p = ui.st;
-    if (p.period === 'year') p.year += d;
+    if (p.period === 'day') p.date = minDate(addDays(p.date, d));
+    else if (p.period === 'week') p.date = minDate(addDays(p.date, d * 7));
+    else if (p.period === 'year') p.year += d;
     else { let m = p.month + d, y = p.year; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } p.month = m; p.year = y; }
     p.anim = true;
     render();
   },
   drill: (el) => {
-    const k = Number(el.dataset.key);
-    if (ui.st.period === 'year') { ui.st.period = 'month'; ui.st.month = k; }
+    const raw = el.dataset.key, k = Number(raw);
+    if (ui.st.period === 'week') { ui.st.period = 'day'; ui.st.date = raw; }
+    else if (ui.st.period === 'month') { ui.st.period = 'day'; ui.st.date = `${ui.st.year}-${pad(ui.st.month)}-${pad(k)}`; }
+    else if (ui.st.period === 'year') { ui.st.period = 'month'; ui.st.month = k; }
     else if (ui.st.period === 'all') { ui.st.period = 'year'; ui.st.year = k; }
     ui.st.anim = true;
     render(); window.scrollTo(0, 0);
@@ -885,6 +1114,7 @@ const actions = {
     if (!y) ui.st.period = 'all';
     else if (!m) { ui.st.period = 'year'; ui.st.year = Number(y); }
     else { ui.st.period = 'month'; ui.st.year = Number(y); ui.st.month = Number(m); }
+    ui.st.date = minDate(`${ui.st.year}-${pad(ui.st.month)}-01`);
     ui.st.anim = true;
     ui.drawer = false; render(); window.scrollTo(0, 0);
   },
@@ -1004,7 +1234,11 @@ function exportCsv() {
 
 document.addEventListener('click', (ev) => {
   const el = ev.target.closest('[data-act]');
-  if (!el || el.getAttribute('aria-disabled') === 'true' || el.closest('#layer')) return;
+  if (!el || el.closest('#layer')) return;
+  if (el.getAttribute('aria-disabled') === 'true') {
+    if (el.dataset.act === 'cal-mode') showToast('합계별은 월별·연별 달력에서 볼 수 있어요', null, 'calendar');
+    return;
+  }
   const fn = actions[el.dataset.act];
   if (fn) { ev.preventDefault(); fn(el); }
 });
@@ -1081,6 +1315,34 @@ function shiftRecordDate(d) {
   const from = d > 0 ? 36 : -36; // 다음 날은 아래에서, 전날은 위에서 들어온다
   anim(screen(), [{ transform: `translateY(${from}px)`, opacity: 0.35 }, { transform: 'none', opacity: 1 }], { duration: 420, easing: EASE.bouncy, kind: 'none' });
   anim(document.querySelector('.date-text'), [{ transform: `translateY(${from / 2.4}px)`, opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, easing: EASE.bouncy, kind: 'none' });
+}
+
+/* =================================================================
+   키보드가 올라오면 화면 전체를 위로 (금액·메모 칸이 가려지지 않게)
+================================================================= */
+const root = document.documentElement;
+let baseH = innerHeight, kbOverlay = 0;
+function updateKeyboard() {
+  const a = document.activeElement;
+  if (!typing(a)) baseH = Math.max(baseH, innerHeight);
+  const resized = baseH - innerHeight > 120;                       // 창 자체가 줄어든 경우
+  const vv = window.visualViewport;
+  const vvGap = vv ? Math.max(0, innerHeight - vv.height - vv.offsetTop) : 0; // 창 위에 겹친 경우
+  const overlay = Math.max(kbOverlay, vvGap > 120 ? vvGap : 0);
+  const open = typing(a) && (resized || overlay > 0);
+  root.classList.toggle('kb-open', open);
+  root.style.setProperty('--kb', `${open && !resized ? overlay : 0}px`);
+  if (open) requestAnimationFrame(() => a.scrollIntoView({ block: a.id === 'memo' || a.id === 'amount' ? 'end' : 'center', behavior: reduced() ? 'auto' : 'smooth' }));
+}
+addEventListener('resize', updateKeyboard);
+window.visualViewport?.addEventListener('resize', updateKeyboard);
+document.addEventListener('focusin', () => setTimeout(updateKeyboard, 250));
+document.addEventListener('focusout', () => setTimeout(updateKeyboard, 100));
+if (platform === 'android' || platform === 'ios') {
+  import('@capacitor/keyboard').then(({ Keyboard }) => {
+    Keyboard.addListener('keyboardWillShow', (i) => { kbOverlay = i.keyboardHeight || 0; setTimeout(updateKeyboard, 50); });
+    Keyboard.addListener('keyboardWillHide', () => { kbOverlay = 0; updateKeyboard(); });
+  }).catch(() => { /* 플러그인 없음 */ });
 }
 
 /* =================================================================
