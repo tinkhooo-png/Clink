@@ -1,6 +1,6 @@
 {
   "name": "simple-ledger",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "단순한 가계부: 기록·통계·설정",
   "scripts": {
     "dev": "vite",
