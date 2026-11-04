@@ -48,12 +48,37 @@ jobs:
         with: { name: Ttaenggrang-web, path: dist }
       - name: 웹에 올리기
         if: env.FIREBASE_SA != '' && github.ref == 'refs/heads/main'
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: ${{ secrets.GITHUB_TOKEN }}
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          channelId: live
-          projectId: ledger-53aeb
+        shell: bash
+        run: |
+          set -o pipefail
+          printf '%s' "$FIREBASE_SA" > "$RUNNER_TEMP/sa.json"
+          # 1) 비밀값이 제대로 된 서비스 계정 JSON인지 확인
+          if ! jq -e '.type == "service_account" and .client_email and .private_key' "$RUNNER_TEMP/sa.json" > /dev/null 2>&1; then
+            echo "::error::FIREBASE_SERVICE_ACCOUNT 값이 올바른 JSON이 아니에요. 내려받은 JSON 파일을 메모장으로 열어 { 부터 } 까지 전부 복사해 비밀값을 다시 저장해 주세요."
+            exit 1
+          fi
+          PID=$(jq -r .project_id "$RUNNER_TEMP/sa.json")
+          echo "서비스 계정: $(jq -r .client_email "$RUNNER_TEMP/sa.json") (프로젝트 $PID)"
+          if [ "$PID" != "ledger-53aeb" ]; then
+            echo "::error::비밀값이 다른 Firebase 프로젝트($PID)의 키예요. ledger-53aeb 프로젝트에서 새 비공개 키를 만들어 주세요."
+            exit 1
+          fi
+          # 2) 올리기
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          if ! npx --yes firebase-tools@14 deploy --only hosting --project ledger-53aeb --non-interactive 2>&1 | tee "$RUNNER_TEMP/deploy.log"; then
+            L="$RUNNER_TEMP/deploy.log"
+            if grep -qiE "site.*not found|no default|Hosting site|404" "$L"; then
+              echo "::error::Firebase Hosting이 아직 시작되지 않았어요. Firebase 콘솔 → 빌드 → Hosting → 시작하기를 끝까지 눌러 주세요."
+            elif grep -qiE "403|permission|PERMISSION_DENIED|not have permission" "$L"; then
+              echo "::error::서비스 계정 권한이 부족해요. Google Cloud 콘솔 → IAM에서 이 서비스 계정에 'Firebase 호스팅 관리자'와 'API 키 뷰어' 역할을 추가해 주세요."
+            elif grep -qiE "has not been used|is disabled|SERVICE_DISABLED" "$L"; then
+              echo "::error::Firebase Hosting API가 꺼져 있어요. 로그에 나온 링크를 열어 '사용'을 눌러 주세요."
+            else
+              echo "::error::웹 올리기에 실패했어요. 이 단계 로그의 마지막 'Error:' 줄을 확인해 주세요: $(grep -iE 'error' "$L" | tail -n 1)"
+            fi
+            exit 1
+          fi
+          echo "::notice::웹에 올렸어요 → https://ledger-53aeb.web.app"
       - name: 웹 주소 설정 안내
         if: env.FIREBASE_SA == ''
         run: echo "::notice::FIREBASE_SERVICE_ACCOUNT 비밀값을 등록하면 https://ledger-53aeb.web.app 에 자동으로 올라가요. (README 4단계)"
